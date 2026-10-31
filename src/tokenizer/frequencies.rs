@@ -29,11 +29,11 @@ pub fn get_words_freq(texts: &[&str]) -> BTreeMap<Pieces, usize> {
 // функция-счётчик пар символов для BPE токенизатора
 // на вход принимает табличку частотности слов в текстах изз frequencies
 // на выходе в pairs_counts выдаёт такую же BTreeMap табличку, только с частотами пар символов, а не слов
-pub fn get_pairs_freq(frequencies: &BTreeMap<Pieces, usize>) -> BTreeMap<(char, char), usize> {
-    let mut pairs_counts: BTreeMap<(char, char), usize> = BTreeMap::new();
+pub fn get_pairs_freq(word_freq: &BTreeMap<Pieces, usize>) -> BTreeMap<(char, char), usize> {
+    let mut pairs_freq: BTreeMap<(char, char), usize> = BTreeMap::new();
 
     // берём слово (как массим символов) и его частоту в тексте
-    for (pieces, &freq) in frequencies {
+    for (pieces, &freq) in word_freq {
         // берём кусочек из 2-х символлов из слова (перебераем так, пока не кончится слово)
         for window in pieces.windows(2) 
         {
@@ -42,9 +42,31 @@ pub fn get_pairs_freq(frequencies: &BTreeMap<Pieces, usize>) -> BTreeMap<(char, 
             // кладём эту пару символов в табличку ДЛЯ ПАР символов
             // если пара уже есть в таблице, увеличиваем её частоту на freq
             // где freq - это частота в ТЕКСТЕ выбранного СЛОВА, из которого мы выдрали текущую пару символов
-            *pairs_counts.entry(pair).or_insert(0) += freq; 
+            *pairs_freq.entry(pair).or_insert(0) += freq; 
         }
     }
 
-    pairs_counts
+    pairs_freq
+}
+
+// функция поиска самой частой пары (если их несколько, берёт первую из таблицы)
+fn find_best_pair(pairs_freq: &BTreeMap<(char, char), usize>) -> Option<((char, char), usize)> {
+    // смотри на первую пару. Если None - функция вернёт None,
+    // если что-то есть, запишет в кортеж (first_pair, first_freq) и пойдём дальше
+    let (&first_pair, &first_freq) = pairs_freq.first_key_value()?;
+
+    // записываем кортеж пара+частота в best (первый в таблице pairs_freq)
+    let mut best = (first_pair, first_freq);
+
+    // пробегаемся по pairs_freq таблице
+    for (&pair, &freq) in pairs_freq {
+        // если кортеж в best по частоте меньше, чем текущая рассматриваемая пара,
+        // то вносим новую (более частую) пару в best
+        if freq > best.1 {
+            best = (pair, freq);
+        }
+    }
+
+    // возвращаем самую частую пару (если было несколько, то самую первую, которая попалась)
+    Some(best)
 }
